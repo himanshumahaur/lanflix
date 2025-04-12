@@ -5,48 +5,56 @@ import struct
 import queue
 import threading
 
-# def table_update():
-#     for folder in os.listdir(DATA_PATH):
-#         tmp = dict() 
-#         for files in os.listdir(DATA_PATH + folder):
-#             tmp[files] = True
-#         table[folder] = tmp
+import ffmpeg
+import os
+import time
 
+import json
 
 PORT = 5000
 NPORT = 5001
 
 DATA_PATH = 'data'
+
 FRAMES = queue.Queue()
+PEERS = [
+    ['127.0.0.1', PORT],
+    ['127.0.0.1', NPORT]
+]
 
-
-table = {
-    'input': [
-        ['000.mp4', '127.0.0.1'],
-        ['001.mp4', '127.0.0.1'],
-        ['002.mp4', '127.0.0.1'],
-        ['002.mp4', '127.0.0.1'],
-        ['002.mp4', '127.0.0.1'],
-        ['002.mp4', '127.0.0.1']
-    ]
-}
+table = {}
 
 #used in REQ handeler, and start-stream
 frames_event = threading.Event()
-#will be used later
 stream_event = threading.Event()
 
-def start_stream(folder):
+def fetch_frames(folder):
     for file, ip in  table[folder]:
         send_request(ip, f'{folder}:{file}')
+
+        #mutex
         frames_event.wait()
         frames_event.clear()
 
+        #buffer size, no. of frames cached
+        while FRAMES.qsize() > 150:
+            time.sleep(1)
+    stream_event.clear()
 
-    while not FRAMES.empty():
-        frame = FRAMES.get()
-        cv2.imshow("Received Frame", frame)
-        cv2.waitKey(41)
+def start_stream(folder):
+    stream_event.set()
+    threading.Thread(target=fetch_frames, args=(folder,)).start()
+
+    while True:
+        if not FRAMES.empty():
+            frame = FRAMES.get()
+            cv2.imshow("Received Frame", frame)
+            cv2.waitKey(41)
+        else:
+            if stream_event.is_set():
+                time.sleep(1)
+            else:
+                return
 
 def send_request(ip, packet):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -114,6 +122,7 @@ def start_inbound_handler():
                 frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
                 FRAMES.put(frame)
+                print(FRAMES.qsize())
 
                 # cv2.imshow('Received Frame', frame)
                 # cv2.waitKey(41)
@@ -127,11 +136,90 @@ def start_inbound_handler():
             
             # print("FRAMES is EMPTY!")
 
+        #UPLOAD
+        elif header == b'\x02':
+            print('UPL')
+
+            be_header_length = conn.recv(4)
+            header_length = struct.unpack('>I', be_header_length)[0]            
+            header = conn.recv(header_length)
+
+            folder, file = header.decode().strip().split(':')
+
+            buffer = bytearray()
+            while chunk := conn.recv(4096):
+                buffer += chunk
+
+            if not os.path.exists(f'{DATA_PATH}/{folder}'):  
+                os.mkdir(f'{DATA_PATH}/{folder}')
+    
+            with open(f'{DATA_PATH}/{folder}/{file}', 'wb') as _:
+                _.write(buffer)
+                _.close()
+
+            print(f'Saved {folder}/{file}!')
+
+        #TABLE
+        elif header == b'\x03':
+            print('TBL')
+
+            buffer = bytearray()
+            while chunk := conn.recv(4096):
+                buffer += chunk
+
+            entry = json.loads(buffer.decode())
+            table.update(entry)
+        
         #UNKNOWN
         else:
             print("OTH")
 
         conn.close()
 
+def share_entry(entry):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect(('127.0.0.1', NPORT))
+
+        #flag
+        s.sendall(b'\x03')
+        
+        buffer = json.dumps(entry).encode()
+        s.sendall(buffer)
+
+def split_share(file):
+    new_entry = {file: list()}
+
+    os.mkdir(f'{DATA_PATH}/.tmp/{file}')
+    ffmpeg.input(file).output(f'{DATA_PATH}/.tmp/{file}/%03d.mp4', c='copy', f='segment', segment_time=5).run()
+
+    chunks = [_ for _ in os.listdir(f'{DATA_PATH}/.tmp/{file}')]
+    for c in chunks:
+        #fix this first
+        ip = '127.0.0.1'
+        new_entry[file].append([c, ip])
+
+        chunk = f'{DATA_PATH}/.tmp/{file}/{c}'
+        buffer = open(chunk, 'rb').read()
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, NPORT))
+
+            #FLAG
+            s.sendall(b'\x02')
+
+            header = f"{file}:{c}"
+            s.sendall(struct.pack('>I', len(header)))
+            s.sendall(header.encode())
+
+            s.sendall(buffer)
+
+        os.remove(chunk)
+    os.rmdir(f'{DATA_PATH}/.tmp/{file}')
+
+    table.update(new_entry)
+    share_entry(new_entry)
+
 threading.Thread(target=start_inbound_handler).start()
-start_stream('input')
+
+split_share('wingit.mp4')
+start_stream('wingit.mp4')
