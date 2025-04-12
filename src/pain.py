@@ -19,7 +19,30 @@ NPORT = 5000
 DATA_PATH = 'data'
 FRAMES = queue.Queue()
 
-def send_request(ip='127.0.0.1', packet='input:000.mp4'):
+
+table = {
+    'input': [
+        ['000.mp4', '127.0.0.1'],
+        ['001.mp4', '127.0.0.1'],
+        ['002.mp4', '127.0.0.1']
+    ]
+}
+
+#used in REQ handeler, and start-stream
+frame_received_event = threading.Event()
+
+def start_stream(folder):
+    for file, ip in  table[folder]:
+        send_request(ip, f'{folder}:{file}')
+        frame_received_event.wait()
+        frame_received_event.clear()
+
+    while not FRAMES.empty():
+        frame = FRAMES.get()
+        cv2.imshow("Received Frame", frame)
+        cv2.waitKey(41)
+
+def send_request(ip='127.0.0.1', packet='input:006.mp4'):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((ip, NPORT))
         
@@ -50,12 +73,6 @@ def send_response(ip, packet):
             s.sendall(be_frame_length)
             
             s.sendall(encoded)
-
-
-def update_buffer(packet):
-    frame = cv2.imdecode(np.frombuffer(packet, np.uint8), cv2.IMREAD_COLOR)
-    cv2.imshow('Received Frame', frame)
-    cv2.waitKey(5)
 
 def start_inbound_handler():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -90,10 +107,12 @@ def start_inbound_handler():
                 img_array = np.frombuffer(frame_encoded, dtype=np.uint8)
                 frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-                # FRAMES.put(frame)
+                FRAMES.put(frame)
 
-                cv2.imshow('Received Frame', frame)
-                cv2.waitKey(41)
+                # cv2.imshow('Received Frame', frame)
+                # cv2.waitKey(41)
+
+            frame_received_event.set()
 
             # while not FRAMES.empty():
             #     frame = FRAMES.get()
