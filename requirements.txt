@@ -1,3 +1,5 @@
 asarPy==1.0.1
+ffmpeg-python==0.2.0
+future==1.0.0
 numpy==2.2.4
 opencv-python==4.11.0.86
