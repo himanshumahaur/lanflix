@@ -12,7 +12,12 @@ import time
 import json
 import random
 
+IP = ''
 PORT = 5000
+
+IPS = []
+for mask in range(0, 255):
+    IPS.append(f'0.0.0.{mask}')
 
 DATA_PATH = 'data'
 
@@ -214,27 +219,27 @@ def split_share(file):
     share_entry(new_entry)
 
 def join_network():
-    self_ip = '127.0.0.1'
-    
-    self_port = PORT
-    self_addr = f'{self_ip}:{self_port}'
+    self_addr = f'{IP}:{PORT}'
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    for port in range(5000, 5001):
+    for ip in IPS:
         try:
-            s.connect((self_ip, port))
-            s.sendall(b'\x04')
-            s.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.1)
+                s.connect((ip, PORT))
+                s.sendall(b'\x04')
 
-            PEERS.add((self_ip, port))
+                PEERS.add((ip, PORT))
+                print(f"Discovered peer: {ip}:{PORT}")
 
-        except:
+        except Exception as e:
+            print(ip, "Not Available")
             continue
 
-threading.Thread(target=start_inbound_handler).start()
+
+# threading.Thread(target=start_inbound_handler).start()
 
 join_network()
+print(IPS)
 
 # add your ip in peer table
     # use socket to get you'r ip first;
