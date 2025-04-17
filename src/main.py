@@ -12,8 +12,8 @@ import time
 import json
 import random
 
-IP = ''
-IPS = []
+IP = '10.34.248.84'
+IPS = ['10.34.248.84', '10.34.248.61']
 
 PORT = 5000
 
@@ -32,7 +32,11 @@ stream_event = threading.Event()
 
 def fetch_frames(folder):
     for file, ip in  TABLE[folder]:
-        send_request(ip, f'{folder}:{file}')
+        if ip == IP:
+            send_request('127.0.0.1', f'{folder}:{file}')
+
+        else:
+            send_request(ip, f'{folder}:{file}')
 
         #mutex
         frames_event.wait()
@@ -69,8 +73,8 @@ def send_request(ip, packet):
 def send_response(ip, packet):
     folder, file = packet.decode().strip().split(":")
 
-    cap = cv2.VideoCapture(f'{DATA_PATH}/{folder}/{file}')    
-
+    cap = cv2.VideoCapture(f'{DATA_PATH}/{folder}/{file}')
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((ip, PORT))
         
@@ -164,7 +168,7 @@ def start_inbound_handler():
         
         elif header == b'\x04':
             print('DSC')
-            
+
             PEERS.add((addr[0], 5000))
 
         #UNKNOWN
@@ -174,15 +178,17 @@ def start_inbound_handler():
         conn.close()
 
 def share_entry(entry):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        for peer in PEERS:
-            s.connect((peer[0], PORT))
+    for ip in IPS:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, PORT))
 
             #flag
             s.sendall(b'\x03')
             
             buffer = json.dumps(entry).encode()
             s.sendall(buffer)
+
+            s.close()
 
 def split_share(file):
     new_entry = {file: list()}
@@ -195,7 +201,7 @@ def split_share(file):
 
     for c in chunks:
         #randomly selection
-        ip = random.choice(list(PEERS))[0]
+        ip = random.choice(IPS)
         new_entry[file].append([c, ip])
 
         chunk = f'{DATA_PATH}/.tmp/{file}/{c}'
@@ -230,15 +236,12 @@ def join_network():
                 s.sendall(b'\x04')
 
                 PEERS.add((ip, PORT))
-                print(f"Discovered peer: {ip}:{PORT}")
 
         except Exception as e:
-            print(ip, "Not Available")
             continue
 
-
-# threading.Thread(target=start_inbound_handler).start()
-
+threading.Thread(target=start_inbound_handler).start()
+# join_network()
 
 # add your ip in peer table
     # use socket to get you'r ip first;
@@ -249,5 +252,5 @@ def join_network():
         # send ip:port, recv ip:port
         # ready for sharing
 
-# split_share('wingit.mp4')
-# start_stream('wingit.mp4')
+split_share('wingit.mp4')
+start_stream('wingit.mp4')
