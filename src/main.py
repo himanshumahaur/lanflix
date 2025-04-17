@@ -17,19 +17,15 @@ NPORT = 5001
 DATA_PATH = 'data'
 
 FRAMES = queue.Queue()
-PEERS = [
-    ['127.0.0.1', PORT],
-    ['127.0.0.1', NPORT]
-]
-
-table = {}
+PEERS = set()
+TABLE = {}
 
 #used in REQ handeler, and start-stream
 frames_event = threading.Event()
 stream_event = threading.Event()
 
 def fetch_frames(folder):
-    for file, ip in  table[folder]:
+    for file, ip in  TABLE[folder]:
         send_request(ip, f'{folder}:{file}')
 
         #mutex
@@ -168,8 +164,13 @@ def start_inbound_handler():
                 buffer += chunk
 
             entry = json.loads(buffer.decode())
-            table.update(entry)
+            TABLE.update(entry)
         
+        elif header == b'\x04':
+            print('DSC')
+            
+            PEERS.add((addr[0], 5000))
+
         #UNKNOWN
         else:
             print("OTH")
@@ -193,6 +194,8 @@ def split_share(file):
     ffmpeg.input(file).output(f'{DATA_PATH}/.tmp/{file}/%03d.mp4', c='copy', f='segment', segment_time=5).run()
 
     chunks = [_ for _ in os.listdir(f'{DATA_PATH}/.tmp/{file}')]
+    chunks.sort()
+
     for c in chunks:
         #fix this first
         ip = '127.0.0.1'
@@ -216,10 +219,38 @@ def split_share(file):
         os.remove(chunk)
     os.rmdir(f'{DATA_PATH}/.tmp/{file}')
 
-    table.update(new_entry)
+    TABLE.update(new_entry)
     share_entry(new_entry)
 
-threading.Thread(target=start_inbound_handler).start()
+def join_network():
+    self_ip = '127.0.0.1'
+    self_port = PORT
+    self_addr = f'{self_ip}:{self_port}'
 
-split_share('wingit.mp4')
-start_stream('wingit.mp4')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    for port in range(5000, 5001):
+        try:
+            s.connect((self_ip, port))
+            s.sendall(b'\x04')
+            s.close()
+
+            PEERS.add((self_ip, port))
+
+        except:
+            continue
+
+threading.Thread(target=start_inbound_handler).start()
+join_network()
+
+# add your ip in peer table
+    # use socket to get you'r ip first;
+    # add it to table simply
+
+# neighbour discovery
+    # iterate over all available ips: (+ if netmask can be found)
+        # send ip:port, recv ip:port
+        # ready for sharing
+
+# split_share('wingit.mp4')
+# start_stream('wingit.mp4')
