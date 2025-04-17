@@ -13,7 +13,7 @@ import json
 import random
 
 IP = '10.34.248.84'
-IPS = ['10.34.248.84', '10.34.248.61']
+IPS = ['10.34.248.61', '10.34.248.62']
 
 PORT = 5000
 
@@ -23,7 +23,7 @@ PORT = 5000
 DATA_PATH = 'data'
 
 FRAMES = queue.Queue()
-PEERS = set()
+PEERS = [IP]
 TABLE = {}
 
 #used in REQ handeler, and start-stream
@@ -169,7 +169,11 @@ def start_inbound_handler():
         elif header == b'\x04':
             print('DSC')
 
-            PEERS.add((addr[0], 5000))
+            data = conn.recv(1024)
+
+            PEERS.append(data.decode())
+
+            print(PEERS)
 
         #UNKNOWN
         else:
@@ -231,17 +235,21 @@ def join_network():
     for ip in IPS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(1)
+                s.settimeout(0.5)
                 s.connect((ip, PORT))
-                s.sendall(b'\x04')
 
-                PEERS.add((ip, PORT))
+                s.sendall(b'\x04')
+                s.sendall(IP.encode())
+
+                PEERS.append(ip)
 
         except Exception as e:
             continue
 
+    print(PEERS)
+
+join_network()
 threading.Thread(target=start_inbound_handler).start()
-# join_network()
 
 # add your ip in peer table
     # use socket to get you'r ip first;
@@ -252,5 +260,5 @@ threading.Thread(target=start_inbound_handler).start()
         # send ip:port, recv ip:port
         # ready for sharing
 
-split_share('wingit.mp4')
-start_stream('wingit.mp4')
+# split_share('wingit.mp4')
+# start_stream('wingit.mp4')
