@@ -10,9 +10,9 @@ import os
 import time
 
 import json
+import random
 
 PORT = 5000
-NPORT = 5001
 
 DATA_PATH = 'data'
 
@@ -54,7 +54,7 @@ def start_stream(folder):
 
 def send_request(ip, packet):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((ip, NPORT))
+        s.connect((ip, PORT))
         
         #FLAG
         s.sendall(b'\x00')
@@ -66,7 +66,7 @@ def send_response(ip, packet):
     cap = cv2.VideoCapture(f'{DATA_PATH}/{folder}/{file}')    
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((ip, NPORT))
+        s.connect((ip, PORT))
         
         #FLAG
         s.sendall(b'\x01')
@@ -120,17 +120,7 @@ def start_inbound_handler():
                 FRAMES.put(frame)
                 print(FRAMES.qsize())
 
-                # cv2.imshow('Received Frame', frame)
-                # cv2.waitKey(41)
-
             frames_event.set()
-
-            # while not FRAMES.empty():
-            #     frame = FRAMES.get()
-            #     cv2.imshow("Received Frame", frame)
-            #     cv2.waitKey(41)
-            
-            # print("FRAMES is EMPTY!")
 
         #UPLOAD
         elif header == b'\x02':
@@ -179,13 +169,14 @@ def start_inbound_handler():
 
 def share_entry(entry):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect(('127.0.0.1', NPORT))
+        for peer in PEERS:
+            s.connect((peer[0], PORT))
 
-        #flag
-        s.sendall(b'\x03')
-        
-        buffer = json.dumps(entry).encode()
-        s.sendall(buffer)
+            #flag
+            s.sendall(b'\x03')
+            
+            buffer = json.dumps(entry).encode()
+            s.sendall(buffer)
 
 def split_share(file):
     new_entry = {file: list()}
@@ -198,14 +189,14 @@ def split_share(file):
 
     for c in chunks:
         #fix this first
-        ip = '127.0.0.1'
+        ip = random.choice(list(PEERS))[0]
         new_entry[file].append([c, ip])
 
         chunk = f'{DATA_PATH}/.tmp/{file}/{c}'
         buffer = open(chunk, 'rb').read()
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((ip, NPORT))
+            s.connect((ip, PORT))
 
             #FLAG
             s.sendall(b'\x02')
@@ -224,6 +215,7 @@ def split_share(file):
 
 def join_network():
     self_ip = '127.0.0.1'
+    
     self_port = PORT
     self_addr = f'{self_ip}:{self_port}'
 
@@ -241,6 +233,7 @@ def join_network():
             continue
 
 threading.Thread(target=start_inbound_handler).start()
+
 join_network()
 
 # add your ip in peer table
