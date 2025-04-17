@@ -13,11 +13,12 @@ import json
 import random
 
 IP = ''
+IPS = []
+
 PORT = 5000
 
-IPS = []
-for mask in range(0, 255):
-    IPS.append(f'0.0.0.{mask}')
+# for mask in range(0, 255):
+#     IPS.append(f'0.0.0.{mask}')
 
 DATA_PATH = 'data'
 
@@ -193,7 +194,7 @@ def split_share(file):
     chunks.sort()
 
     for c in chunks:
-        #fix this first
+        #randomly selection
         ip = random.choice(list(PEERS))[0]
         new_entry[file].append([c, ip])
 
@@ -224,7 +225,7 @@ def join_network():
     for ip in IPS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.1)
+                s.settimeout(1)
                 s.connect((ip, PORT))
                 s.sendall(b'\x04')
 
@@ -238,8 +239,6 @@ def join_network():
 
 # threading.Thread(target=start_inbound_handler).start()
 
-join_network()
-print(IPS)
 
 # add your ip in peer table
     # use socket to get you'r ip first;
