@@ -24,6 +24,7 @@ DATA_PATH = 'data'
 
 FRAMES = queue.Queue()
 PEERS = set()
+PEERS.add(IP)
 TABLE = {}
 
 #used in REQ handeler, and start-stream
@@ -233,7 +234,7 @@ def split_share(file):
 def join_network():
     self_addr = f'{IP}:{PORT}'
 
-    for ip in PEERS:
+    for ip in IPS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(0.5)
@@ -261,5 +262,5 @@ threading.Thread(target=start_inbound_handler).start()
         # send ip:port, recv ip:port
         # ready for sharing
 
-split_share('wingit.mp4')
-start_stream('wingit.mp4')
+# split_share('wingit.mp4')
+# start_stream('wingit.mp4')
