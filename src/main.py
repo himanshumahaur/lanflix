@@ -23,7 +23,7 @@ PORT = 5000
 DATA_PATH = 'data'
 
 FRAMES = queue.Queue()
-PEERS = [IP]
+PEERS = set()
 TABLE = {}
 
 #used in REQ handeler, and start-stream
@@ -171,7 +171,7 @@ def start_inbound_handler():
 
             data = conn.recv(1024)
 
-            PEERS.append(data.decode())
+            PEERS.add(data.decode())
 
             print(PEERS)
 
@@ -182,7 +182,7 @@ def start_inbound_handler():
         conn.close()
 
 def share_entry(entry):
-    for ip in IPS:
+    for ip in PEERS:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((ip, PORT))
 
@@ -205,13 +205,14 @@ def split_share(file):
 
     for c in chunks:
         #randomly selection
-        ip = random.choice(IPS)
+        ip = random.choice(list(PEERS))
         new_entry[file].append([c, ip])
 
         chunk = f'{DATA_PATH}/.tmp/{file}/{c}'
         buffer = open(chunk, 'rb').read()
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            print(ip, PORT)
             s.connect((ip, PORT))
 
             #FLAG
@@ -232,7 +233,7 @@ def split_share(file):
 def join_network():
     self_addr = f'{IP}:{PORT}'
 
-    for ip in IPS:
+    for ip in PEERS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(0.5)
@@ -241,7 +242,7 @@ def join_network():
                 s.sendall(b'\x04')
                 s.sendall(IP.encode())
 
-                PEERS.append(ip)
+                PEERS.add(ip)
 
         except Exception as e:
             continue
@@ -260,5 +261,5 @@ threading.Thread(target=start_inbound_handler).start()
         # send ip:port, recv ip:port
         # ready for sharing
 
-# split_share('wingit.mp4')
-# start_stream('wingit.mp4')
+split_share('wingit.mp4')
+start_stream('wingit.mp4')
