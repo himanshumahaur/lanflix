@@ -258,7 +258,7 @@ def join_network():
 
     print(PEERS)
 
-os.system('rm -r ./data && mkdir -p ./data/.tmp')
+os.system('rm -r ./data && mkdir -p ./data/.tmp && touch ./data/.tmp/.gitkeep')
 
 join_network()
 threading.Thread(target=start_inbound_handler).start()
