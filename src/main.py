@@ -12,8 +12,8 @@ import time
 import json
 import random
 
-IP = '172.22.9.99'
-IPS = ['172.22.9.98', '172.22.9.100']
+IP = '127.0.0.1'
+IPS = []
 
 PORT = 5000
 
@@ -33,26 +33,39 @@ stream_event = threading.Event()
 
 def fetch_frames(folder):
     for file, ip in  TABLE[folder]:
+        if not stream_event.is_set():
+            return
+
         send_request(ip, f'{folder}:{file}')
 
-        #mutex
+        #mutex if free for next request
         frames_event.wait()
         frames_event.clear()
 
         #buffer size, no. of frames cached
         while FRAMES.qsize() > 150:
             time.sleep(1)
+
     stream_event.clear()
 
 def start_stream(folder):
     stream_event.set()
+
     threading.Thread(target=fetch_frames, args=(folder,)).start()
 
     while True:
         if not FRAMES.empty():
             frame = FRAMES.get()
             cv2.imshow("Received Frame", frame)
-            cv2.waitKey(41)
+
+            if cv2.waitKey(41) & 0xFF == ord('q'):
+                
+
+                while not FRAMES.empty():
+                    FRAMES.get()
+
+                stream_event.clear()
+                return
         else:
             if stream_event.is_set():
                 time.sleep(1)
@@ -125,7 +138,6 @@ def start_inbound_handler():
                 frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
                 FRAMES.put(frame)
-                print(FRAMES.qsize())
 
             frames_event.set()
 
@@ -256,5 +268,48 @@ threading.Thread(target=start_inbound_handler).start()
 - While to play stream
 '''
 
-split_share('wingit.mp4')
-start_stream('wingit.mp4')
+def render_logo():
+    print(r"    ____   ____ ____   ______ __  ____ ______ _____  __  __")
+    print(r"   / __ \ /  _// __ \ / ____//  |/   // ____// ___/ / / / /")
+    print(r"  / /_/ / / / / /_/ // __/  / /|_// // __/   \__ \ / /_/ /")
+    print(r" / ____/ / / / ____// /___ / /   / // /___ ____/ // __  /")
+    print(r"/_/    /___//_/   //_____//_/   /_//_____//_____//_/ /_/")
+
+    print("\n\tAbhishek Raj\t\t2024PIS5012")
+    print("\tHimanshu Mahaur\t\t2024PIS5020")
+
+# split_share("wingit.mp4")
+
+while(True):
+    os.system("clear")
+
+    render_logo()
+
+    print("\nCHOOSE AN OPTION")
+
+    print("\t1. Connected Peers")
+    print("\t2. Show Table")
+    print("\t3. Upload File")
+    print("\t4. Stream File")
+
+    opt = int(input("-> "))
+
+    if opt == 1:
+        print(list(PEERS))
+        input("Press Enter to continue...")
+
+    elif opt == 2:
+        print(TABLE.keys())
+        input("Press Enter to continue...")
+
+    elif opt == 3:
+        file = input("File: ")
+        split_share(file)
+        input("Press Enter to continue...")
+
+    elif opt == 4:
+        file = input("File: ")
+        start_stream(file)
+
+    else:
+        input("Invalid Input...")
