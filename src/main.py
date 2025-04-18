@@ -12,8 +12,8 @@ import time
 import json
 import random
 
-IP = '10.34.248.84'
-IPS = ['10.34.248.61', '10.34.248.62']
+IP = '172.22.9.99'
+IPS = ['172.22.9.98', '172.22.9.100']
 
 PORT = 5000
 
@@ -33,11 +33,7 @@ stream_event = threading.Event()
 
 def fetch_frames(folder):
     for file, ip in  TABLE[folder]:
-        if ip == IP:
-            send_request('127.0.0.1', f'{folder}:{file}')
-
-        else:
-            send_request(ip, f'{folder}:{file}')
+        send_request(ip, f'{folder}:{file}')
 
         #mutex
         frames_event.wait()
@@ -250,17 +246,15 @@ def join_network():
 
     print(PEERS)
 
+os.system('rm -r ./data && mkdir -p ./data/.tmp')
+
 join_network()
 threading.Thread(target=start_inbound_handler).start()
 
-# add your ip in peer table
-    # use socket to get you'r ip first;
-    # add it to table simply
+'''
+- IP can be retrived using `socket ... fun()`
+- While to play stream
+'''
 
-# neighbour discovery
-    # iterate over all available ips: (+ if netmask can be found)
-        # send ip:port, recv ip:port
-        # ready for sharing
-
-# split_share('wingit.mp4')
-# start_stream('wingit.mp4')
+split_share('wingit.mp4')
+start_stream('wingit.mp4')
