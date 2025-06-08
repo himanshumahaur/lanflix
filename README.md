@@ -1,6 +1,6 @@
 # PIPEMESH: Decentralized LAN-Based File Distribution and Streaming System
 
-> A peer-to-peer real-time file streaming solution for local area networks.
+> A peer-to-peer real-time file streaming solution for local area networks (LAN).
 
 ## Overview
 
