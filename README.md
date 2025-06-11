@@ -25,7 +25,7 @@ Developed as part of the **Design Lab** course at MNIT Jaipur, this project focu
 
 ## Technologies Used
 
-- **Python 3**
+- **Python 3 or >=3**
 - **FFmpeg CLI** – For segmenting MP4 files
 - **OpenCV** – For video rendering
 - **Socket Programming** – Custom TCP protocol
